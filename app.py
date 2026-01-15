@@ -1,6 +1,6 @@
 
 # app.py
-# app.py - DEPLOYMENT READY VERSION
+
 import streamlit as st
 import requests
 import datetime
@@ -166,3 +166,4 @@ if savings < 0:
     st.error("You're spending more than you earn!")
 elif savings > 0:
     st.success(f"You can save ${savings} per month")
+
