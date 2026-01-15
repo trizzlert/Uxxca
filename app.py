@@ -19,7 +19,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Get API keys from environment variables (SAFER)
+# Get API keys from environment variables
 PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY", "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")
 YOUR_EMAIL = os.getenv("YOUR_EMAIL", "trijal539@gmail.com")
 YOUR_APP_PASSWORD = os.getenv("YOUR_APP_PASSWORD", "trijla@12345")
@@ -94,14 +94,13 @@ def ask_perplexity(question):
 def send_email(subject, body, to_addr):
     """Send email - Simplified for demo"""
     try:
-        # For demo purposes - in production, implement proper email
         return "Email feature is disabled in demo mode. Please contact support."
     except:
         return "Email service unavailable."
 
 # Sidebar
 with st.sidebar:
-    st.title("💰 UXXCA Finance")
+    st.title("💰 UXXCA Finance Assistant")
     st.markdown("---")
     
     st.subheader("Quick Questions")
@@ -109,11 +108,16 @@ with st.sidebar:
         "How to create a budget?",
         "Best investment for beginners?",
         "How to save for retirement?",
-        "Tips to reduce debt?"
+        "Tips to reduce debt?",
+        "What is an emergency fund?",
+        "How to improve credit score?",
+        "Roth IRA vs Traditional IRA",
+        "How to start investing?"
     ]
     
-    for q in questions:
-        if st.button(q, use_container_width=True, key=f"btn_{q[:5]}"):
+    # FIXED: Using enumerate to create unique keys
+    for idx, q in enumerate(questions):
+        if st.button(q, use_container_width=True, key=f"quick_q_{idx}"):
             st.session_state.messages.append({"role": "user", "content": q})
             with st.spinner("Thinking..."):
                 response = ask_perplexity(q)
@@ -121,7 +125,25 @@ with st.sidebar:
             st.rerun()
     
     st.markdown("---")
-    if st.button("🗑️ Clear Chat", use_container_width=True):
+    st.subheader("Tools")
+    
+    # Email feature with unique keys
+    with st.expander("📧 Send Email"):
+        email_to = st.text_input("To:", placeholder="recipient@example.com", key="email_to")
+        email_subject = st.text_input("Subject:", placeholder="Financial Advice", key="email_subject")
+        email_body = st.text_area("Message:", height=100, key="email_body")
+        if st.button("Send Email", use_container_width=True, key="send_email_btn"):
+            if email_to and email_subject and email_body:
+                with st.spinner("Sending..."):
+                    result = send_email(email_subject, email_body, email_to)
+                    st.success(result)
+            else:
+                st.warning("Please fill all fields")
+    
+    st.markdown("---")
+    
+    # Clear chat button with unique key
+    if st.button("🗑️ Clear Chat", use_container_width=True, key="clear_chat_btn"):
         st.session_state.messages = [
             {"role": "assistant", "content": "Chat cleared! How can I help with your finances today?"}
         ]
@@ -136,8 +158,8 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Chat input
-if prompt := st.chat_input("Ask me about finance..."):
+# Chat input with unique key
+if prompt := st.chat_input("Ask me about finance...", key="main_chat_input"):
     st.session_state.messages.append({"role": "user", "content": prompt})
     
     with st.chat_message("user"):
@@ -149,21 +171,43 @@ if prompt := st.chat_input("Ask me about finance..."):
             st.markdown(response)
             st.session_state.messages.append({"role": "assistant", "content": response})
 
-# Simple Calculator
+# Budget Calculator with unique keys
 st.markdown("---")
-st.subheader("💰 Quick Budget Calculator")
+st.subheader("💰 Budget Calculator")
 
 col1, col2 = st.columns(2)
 with col1:
-    income = st.number_input("Monthly Income", min_value=0, value=3000)
+    income = st.number_input("Monthly Income ($)", min_value=0, value=3000, key="income_input")
+    housing = st.number_input("Housing ($)", min_value=0, value=1000, key="housing_input")
 with col2:
-    expenses = st.number_input("Monthly Expenses", min_value=0, value=2000)
+    expenses = st.number_input("Other Expenses ($)", min_value=0, value=1500, key="expenses_input")
+    savings_goal = st.number_input("Savings Goal ($)", min_value=0, value=500, key="savings_goal")
 
-savings = income - expenses
-st.metric("Monthly Savings", f"${savings}")
+total_expenses = housing + expenses
+savings = income - total_expenses
+
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.metric("Income", f"${income}")
+with col2:
+    st.metric("Expenses", f"${total_expenses}")
+with col3:
+    st.metric("Remaining", f"${savings}")
 
 if savings < 0:
-    st.error("You're spending more than you earn!")
-elif savings > 0:
-    st.success(f"You can save ${savings} per month")
+    st.error("⚠️ You're spending more than you earn!")
+elif savings < savings_goal:
+    st.warning(f"You're saving ${savings}, but your goal is ${savings_goal}")
+else:
+    st.success(f"✅ Great! You're meeting your savings goal of ${savings_goal}")
 
+# Footer
+st.markdown("---")
+st.markdown(
+    """
+    <div style='text-align: center; color: gray; padding: 1rem;'>
+        <small>💰 UXXCA Finance Assistant | General advice only</small>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
