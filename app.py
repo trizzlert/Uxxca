@@ -9,7 +9,6 @@ from datetime import datetime, timedelta
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
-import tempfile
 import base64
 
 # ========== PAGE CONFIG ==========
@@ -53,11 +52,6 @@ st.markdown("""
         color: #ffffff !important;
     }
     
-    /* Fix selectbox */
-    .stSelectbox label {
-        color: #ffffff !important;
-    }
-    
     /* UXXCA Brand Header */
     .uxxca-header {
         background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
@@ -97,33 +91,13 @@ st.markdown("""
         color: #94a3b8 !important;
     }
     
-    /* Button Styling */
-    .stButton > button {
-        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-        color: white !important;
-        border: none;
-        border-radius: 10px;
-        padding: 0.75rem 1.5rem;
-        font-weight: 600;
-    }
-    
-    /* Spreadsheet Table Styling */
-    .spreadsheet-table {
+    /* Graph Container */
+    .graph-box {
         background-color: #1e293b;
-        border-radius: 10px;
-        padding: 1rem;
+        border-radius: 15px;
+        padding: 1.5rem;
         margin: 1rem 0;
         border: 1px solid #334155;
-    }
-    
-    /* Fix Tabs */
-    .stTabs [data-baseweb="tab"] {
-        color: #ffffff !important;
-    }
-    
-    /* Fix Expanders */
-    .streamlit-expanderHeader {
-        color: #ffffff !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -132,10 +106,7 @@ st.markdown("""
 def create_financial_spreadsheet(financial_data, transactions=None):
     """Create a professional Excel spreadsheet with financial data"""
     
-    # Create a new workbook
     wb = openpyxl.Workbook()
-    
-    # ===== DASHBOARD SHEET =====
     ws1 = wb.active
     ws1.title = "Financial Dashboard"
     
@@ -161,133 +132,25 @@ def create_financial_spreadsheet(financial_data, transactions=None):
         ["Profit Margin", f"{(financial_data['revenue'] - financial_data['expenses']) / financial_data['revenue'] * 100:.1f}%"],
         ["Cash Balance", f"${financial_data['cash_balance']:,.2f}"],
         ["Runway", f"{financial_data['cash_balance'] / financial_data['expenses']:.1f} months"],
-        ["Burn Rate", f"${financial_data['expenses']:,.2f}/month"],
-        ["Growth Rate", "15.2%"]  # Could be calculated
     ]
-    
-    # Style metrics
-    header_fill = PatternFill(start_color="334155", end_color="334155", fill_type="solid")
-    metric_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
-    border = Border(
-        left=Side(style='thin'),
-        right=Side(style='thin'),
-        top=Side(style='thin'),
-        bottom=Side(style='thin')
-    )
     
     # Write metrics
-    ws1['A6'] = "KEY METRICS"
-    ws1['A6'].fill = header_fill
-    ws1['A6'].font = Font(bold=True, color="FFFFFF")
-    
-    for i, (label, value) in enumerate(metrics, start=7):
+    for i, (label, value) in enumerate(metrics, start=6):
         ws1[f'A{i}'] = label
         ws1[f'B{i}'] = value
-        
-        # Apply styling
-        for cell in [ws1[f'A{i}'], ws1[f'B{i}']]:
-            cell.fill = metric_fill
-            cell.border = border
-            cell.font = Font(color="FFFFFF")
-    
-    # ===== INCOME STATEMENT SHEET =====
-    ws2 = wb.create_sheet("Income Statement")
-    
-    # Income Statement
-    ws2['A1'] = "INCOME STATEMENT"
-    ws2['A1'].font = Font(size=16, bold=True, color="FFFFFF")
-    
-    income_items = [
-        ["REVENUE", "", ""],
-        ["  Product Sales", financial_data['revenue'] * 0.7, ""],
-        ["  Service Revenue", financial_data['revenue'] * 0.3, ""],
-        ["Total Revenue", "", f"=SUM(B3:B4)"],
-        ["", "", ""],
-        ["EXPENSES", "", ""],
-        ["  Cost of Goods", financial_data['expenses'] * 0.4, ""],
-        ["  Marketing", financial_data['expenses'] * 0.2, ""],
-        ["  Salaries", financial_data['expenses'] * 0.25, ""],
-        ["  Operations", financial_data['expenses'] * 0.15, ""],
-        ["Total Expenses", "", f"=SUM(B7:B10)"],
-        ["", "", ""],
-        ["NET PROFIT", "", f"=B5-B11"]
-    ]
-    
-    for i, row in enumerate(income_items, start=1):
-        for j, value in enumerate(row, start=1):
-            cell = ws2.cell(row=i, column=j, value=value)
-            if isinstance(value, (int, float)) and value != "":
-                cell.number_format = '"$"#,##0.00'
-    
-    # ===== CASH FLOW SHEET =====
-    ws3 = wb.create_sheet("Cash Flow")
-    ws3['A1'] = "CASH FLOW FORECAST"
-    ws3['A1'].font = Font(size=16, bold=True, color="FFFFFF")
-    
-    # 12-month forecast
-    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", 
-              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    
-    ws3['A3'] = "Month"
-    for i, month in enumerate(months, start=1):
-        ws3.cell(row=3, column=i+1, value=month)
-    
-    # Starting balance
-    ws3['A4'] = "Starting Balance"
-    ws3.cell(row=4, column=2, value=financial_data['cash_balance'])
-    
-    # Monthly cash flow
-    ws3['A5'] = "Monthly Cash Flow"
-    monthly_cash_flow = financial_data['revenue'] - financial_data['expenses']
-    for i in range(1, 13):
-        ws3.cell(row=5, column=i+1, value=monthly_cash_flow)
-    
-    # Ending balance
-    ws3['A6'] = "Ending Balance"
-    for i in range(1, 13):
-        if i == 1:
-            ws3.cell(row=6, column=i+1, 
-                    value=f"=B4+B5")
-        else:
-            ws3.cell(row=6, column=i+1,
-                    value=f"={get_column_letter(i)}6+{get_column_letter(i+1)}5")
-    
-    # Format numbers
-    for row in ws3.iter_rows(min_row=4, max_row=6, min_col=2, max_col=13):
-        for cell in row:
-            if cell.value:
-                cell.number_format = '"$"#,##0.00'
-    
-    # ===== TRANSACTIONS SHEET =====
-    if transactions:
-        ws4 = wb.create_sheet("Transactions")
-        ws4['A1'] = "TRANSACTION LOG"
-        ws4['A1'].font = Font(size=16, bold=True, color="FFFFFF")
-        
-        headers = ["Date", "Description", "Category", "Amount", "Type"]
-        for i, header in enumerate(headers, start=1):
-            ws4.cell(row=3, column=i, value=header).font = Font(bold=True)
-        
-        for i, transaction in enumerate(transactions, start=4):
-            ws4.cell(row=i, column=1, value=transaction.get('date', ''))
-            ws4.cell(row=i, column=2, value=transaction.get('description', ''))
-            ws4.cell(row=i, column=3, value=transaction.get('category', ''))
-            ws4.cell(row=i, column=4, value=transaction.get('amount', 0))
-            ws4.cell(row=i, column=5, value=transaction.get('type', ''))
     
     # Adjust column widths
-    for ws in wb.worksheets:
-        for column in ws.columns:
-            max_length = 0
-            column_letter = get_column_letter(column[0].column)
-            for cell in column:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            adjusted_width = (max_length + 2)
-            ws.column_dimensions[column_letter].width = adjusted_width
+    for column in ws1.columns:
+        max_length = 0
+        column_letter = get_column_letter(column[0].column)
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = (max_length + 2)
+        ws1.column_dimensions[column_letter].width = adjusted_width
     
     # Save to bytes
     excel_bytes = io.BytesIO()
@@ -302,10 +165,151 @@ def get_download_link(excel_bytes, filename="financial_report.xlsx"):
     href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-weight: bold; display: inline-block; margin: 10px 0;">📥 Download Financial Report</a>'
     return href
 
+# ========== GRAPH FUNCTIONS ==========
+def plot_cash_flow_forecast(revenue, expenses, cash_balance, months=12):
+    """Plot cash flow forecast"""
+    months_list = list(range(1, months + 1))
+    forecast = []
+    current_cash = cash_balance
+    
+    for month in months_list:
+        current_cash += (revenue - expenses)
+        forecast.append(current_cash)
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        x=months_list,
+        y=forecast,
+        mode='lines+markers',
+        name='Cash Forecast',
+        line=dict(color='#60a5fa', width=3),
+        marker=dict(size=8),
+        fill='tozeroy',
+        fillcolor='rgba(96, 165, 250, 0.1)'
+    ))
+    
+    fig.update_layout(
+        title="💰 12-Month Cash Flow Forecast",
+        xaxis_title="Months",
+        yaxis_title="Cash Balance ($)",
+        template="plotly_dark",
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='white'),
+        hovermode='x unified',
+        height=400
+    )
+    
+    return fig
+
+def plot_expense_breakdown(expenses_dict):
+    """Plot expense breakdown"""
+    fig = go.Figure()
+    
+    fig.add_trace(go.Pie(
+        labels=list(expenses_dict.keys()),
+        values=list(expenses_dict.values()),
+        hole=0.4,
+        marker=dict(colors=['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6']),
+        textinfo='label+percent',
+        textposition='outside'
+    ))
+    
+    fig.update_layout(
+        title="📊 Expense Breakdown",
+        template="plotly_dark",
+        paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='white'),
+        height=400,
+        showlegend=False
+    )
+    
+    return fig
+
+def plot_profit_trend(revenue, expenses):
+    """Plot profit trend over time"""
+    months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    profit_trend = []
+    
+    # Simulate some variation
+    for i in range(12):
+        month_revenue = revenue * (1 + np.random.uniform(-0.1, 0.2))
+        month_expenses = expenses * (1 + np.random.uniform(-0.05, 0.15))
+        profit_trend.append(month_revenue - month_expenses)
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        x=months,
+        y=profit_trend,
+        mode='lines+markers',
+        name='Monthly Profit',
+        line=dict(color='#10b981', width=3),
+        marker=dict(size=8)
+    ))
+    
+    fig.update_layout(
+        title="📈 Monthly Profit Trend",
+        xaxis_title="Month",
+        yaxis_title="Profit ($)",
+        template="plotly_dark",
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='white'),
+        hovermode='x unified',
+        height=400
+    )
+    
+    return fig
+
+def plot_runway_analysis(cash_balance, monthly_expenses):
+    """Plot runway analysis"""
+    if monthly_expenses == 0:
+        return None
+    
+    scenarios = {
+        'Current': cash_balance / monthly_expenses,
+        'Reduce Expenses 20%': cash_balance / (monthly_expenses * 0.8),
+        'Increase Revenue 20%': (cash_balance + (monthly_expenses * 0.2 * 6)) / monthly_expenses,
+        'Both Strategies': cash_balance / (monthly_expenses * 0.8) + 2
+    }
+    
+    fig = go.Figure()
+    
+    colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6']
+    
+    for i, (scenario, runway) in enumerate(scenarios.items()):
+        fig.add_trace(go.Bar(
+            x=[scenario],
+            y=[runway],
+            name=scenario,
+            marker_color=colors[i],
+            text=[f'{runway:.1f} months'],
+            textposition='outside'
+        ))
+    
+    fig.add_hline(y=6, line_dash="dash", line_color="green", 
+                  annotation_text="6-Month Safety Net", 
+                  annotation_position="top right")
+    
+    fig.update_layout(
+        title="🛡️ Runway Analysis - Different Strategies",
+        yaxis_title="Months of Runway",
+        showlegend=False,
+        template="plotly_dark",
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='white'),
+        height=400
+    )
+    
+    return fig
+
 # ========== SESSION STATE ==========
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "👋 **Welcome to UXXCA AI CFO!** I'm your financial co-pilot. I can analyze your finances, generate professional spreadsheets, and provide actionable advice."}
+        {"role": "assistant", "content": "👋 **Welcome to UXXCA AI CFO!** I'm your financial co-pilot. I can analyze your finances, generate professional spreadsheets, create interactive graphs, and provide actionable advice."}
     ]
 
 if "financial_data" not in st.session_state:
@@ -317,12 +321,28 @@ if "financial_data" not in st.session_state:
     }
 
 # ========== HELPER FUNCTIONS ==========
-PERPLEXITY_API_KEY = st.secrets.get("PERPLEXITY_API_KEY", "your-api-key-here")
-
 def ask_cfo_assistant(question, financial_context=None):
     """Enhanced CFO AI Assistant"""
-    # Your existing API call function
-    return f"Analysis for: {question}\n\nBased on your current metrics:\n- Revenue: ${financial_context['revenue']:,.2f}\n- Expenses: ${financial_context['expenses']:,.2f}\n- Profit: ${financial_context['revenue'] - financial_context['expenses']:,.2f}"
+    if financial_context:
+        return f"""
+**Analysis of your financial situation:**
+
+**Current Metrics:**
+- Monthly Revenue: ${financial_context['revenue']:,.2f}
+- Monthly Expenses: ${financial_context['expenses']:,.2f}
+- Monthly Profit: ${financial_context['revenue'] - financial_context['expenses']:,.2f}
+- Profit Margin: {(financial_context['revenue'] - financial_context['expenses']) / financial_context['revenue'] * 100:.1f}%
+- Cash Runway: {financial_context['cash_balance'] / financial_context['expenses']:.1f} months
+
+**Recommendations:**
+1. Focus on increasing your profit margin by optimizing expenses
+2. Maintain at least 6 months of cash runway for safety
+3. Consider reinvesting profits into growth opportunities
+
+**Next Steps:**
+Generate detailed reports using the spreadsheet feature below, or explore interactive graphs to visualize your financial health.
+"""
+    return "I'm here to help with your financial analysis. Please provide your financial data in the sidebar."
 
 # ========== SIDEBAR ==========
 with st.sidebar:
@@ -354,14 +374,29 @@ with st.sidebar:
                                   value=st.session_state.financial_data['cash_balance'],
                                   key="cash_input")
     
-    if st.button("🔄 Update Financial Data", type="primary", use_container_width=True):
+    # Expense breakdown inputs
+    st.markdown("### 📈 Expense Categories")
+    marketing = st.number_input("Marketing ($)", min_value=0, value=int(expenses * 0.2), key="marketing")
+    salaries = st.number_input("Salaries ($)", min_value=0, value=int(expenses * 0.4), key="salaries")
+    operations = st.number_input("Operations ($)", min_value=0, value=int(expenses * 0.2), key="operations")
+    software = st.number_input("Software ($)", min_value=0, value=int(expenses * 0.1), key="software")
+    other = st.number_input("Other ($)", min_value=0, value=int(expenses * 0.1), key="other")
+    
+    if st.button("🔄 Update All Data", type="primary", use_container_width=True):
         st.session_state.financial_data = {
             "revenue": revenue,
             "expenses": expenses,
             "cash_balance": cash_balance,
-            "company_name": company_name
+            "company_name": company_name,
+            "expense_breakdown": {
+                "Marketing": marketing,
+                "Salaries": salaries,
+                "Operations": operations,
+                "Software": software,
+                "Other": other
+            }
         }
-        st.success("✅ Financial data updated!")
+        st.success("✅ All data updated!")
         st.rerun()
 
 # ========== MAIN INTERFACE ==========
@@ -370,94 +405,19 @@ st.markdown("""
 <div class="uxxca-header">
     <h1 style="margin: 0; font-size: 2.8rem;">Financial Clarity at Your Fingertips</h1>
     <p style="margin: 0.8rem 0 0 0; font-size: 1.2rem;">
-        AI CFO Assistant • Professional Spreadsheets • Real-time Analysis
+        AI CFO Assistant • Professional Spreadsheets • Interactive Graphs
     </p>
 </div>
 """, unsafe_allow_html=True)
 
-# ========== SPREADSHEET GENERATOR SECTION ==========
-st.markdown("### 📈 Generate Professional Spreadsheet")
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    include_forecast = st.checkbox("Include 12-Month Forecast", value=True)
-with col2:
-    include_income_stmt = st.checkbox("Include Income Statement", value=True)
-with col3:
-    include_transactions = st.checkbox("Include Sample Transactions", value=True)
-
-# Generate spreadsheet button
-if st.button("🚀 Generate Professional Financial Report", type="primary", use_container_width=True):
-    with st.spinner("Creating professional Excel report..."):
-        # Create sample transactions if needed
-        transactions = None
-        if include_transactions:
-            categories = ['Marketing', 'Salaries', 'Software', 'Office', 'Travel']
-            transactions = []
-            for i in range(20):
-                transactions.append({
-                    'date': (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d"),
-                    'description': f"{np.random.choice(categories)} Expense",
-                    'category': np.random.choice(categories),
-                    'amount': round(np.random.uniform(50, 2000), 2),
-                    'type': 'expense' if np.random.random() > 0.3 else 'revenue'
-                })
-        
-        # Generate Excel file
-        excel_file = create_financial_spreadsheet(
-            st.session_state.financial_data,
-            transactions if include_transactions else None
-        )
-        
-        # Create download link
-        st.markdown(get_download_link(excel_file, f"{company_name}_Financial_Report.xlsx"), unsafe_allow_html=True)
-        
-        # Preview the spreadsheet
-        st.markdown("### 📋 Report Preview")
-        
-        # Show dashboard preview
-        st.markdown("**Financial Dashboard Includes:**")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("""
-            - Company Information
-            - Key Financial Metrics
-            - Profit/Loss Summary
-            - Cash Runway Analysis
-            """)
-        
-        with col2:
-            st.markdown("""
-            - Burn Rate Calculation
-            - Growth Projections
-            - Financial Health Score
-            - Actionable Insights
-            """)
-        
-        # Sample data table
-        st.markdown("**Sample Financial Data:**")
-        sample_df = pd.DataFrame({
-            "Metric": ["Monthly Revenue", "Monthly Expenses", "Monthly Profit", "Profit Margin", "Cash Runway"],
-            "Value": [
-                f"${revenue:,.2f}",
-                f"${expenses:,.2f}",
-                f"${revenue - expenses:,.2f}",
-                f"{(revenue - expenses) / revenue * 100:.1f}%" if revenue > 0 else "0%",
-                f"{cash_balance / expenses:.1f} months" if expenses > 0 else "N/A"
-            ]
-        })
-        st.dataframe(sample_df, use_container_width=True)
-
 # ========== FINANCIAL METRICS ==========
-st.markdown("---")
-st.markdown("### 📊 Live Financial Metrics")
+st.markdown("### 📊 Live Financial Dashboard")
 
 col1, col2, col3, col4 = st.columns(4)
 
 profit = revenue - expenses
 runway = cash_balance / expenses if expenses > 0 else 0
+profit_margin = (profit / revenue * 100) if revenue > 0 else 0
 
 with col1:
     st.metric("Monthly Revenue", f"${revenue:,.0f}")
@@ -465,9 +425,102 @@ with col2:
     st.metric("Monthly Expenses", f"${expenses:,.0f}")
 with col3:
     st.metric("Monthly Profit", f"${profit:,.0f}", 
-              f"{(profit/revenue*100):.1f}%" if revenue > 0 else "0%")
+              f"{profit_margin:.1f}% margin")
 with col4:
-    st.metric("Cash Runway", f"{runway:.1f} months")
+    runway_status = "✅" if runway >= 6 else "⚠️" if runway >= 3 else "🚨"
+    st.metric("Cash Runway", f"{runway:.1f} months", runway_status)
+
+# ========== SPREADSHEET GENERATOR ==========
+st.markdown("---")
+st.markdown("### 📈 Generate Professional Spreadsheet")
+
+if st.button("🚀 Generate Excel Financial Report", type="primary", use_container_width=True):
+    with st.spinner("Creating professional Excel report..."):
+        # Generate Excel file
+        excel_file = create_financial_spreadsheet(st.session_state.financial_data)
+        
+        # Create download link
+        st.markdown(get_download_link(excel_file, f"{company_name}_Financial_Report.xlsx"), unsafe_allow_html=True)
+        
+        st.success("✅ Report generated! Click the button above to download.")
+
+# ========== INTERACTIVE GRAPHS ==========
+st.markdown("---")
+st.markdown("### 📊 Interactive Financial Graphs")
+
+# Create tabs for different graphs
+tab1, tab2, tab3, tab4 = st.tabs(["Cash Flow Forecast", "Expense Breakdown", "Profit Trend", "Runway Analysis"])
+
+with tab1:
+    st.markdown('<div class="graph-box">', unsafe_allow_html=True)
+    fig1 = plot_cash_flow_forecast(revenue, expenses, cash_balance)
+    st.plotly_chart(fig1, use_container_width=True)
+    
+    st.markdown("**💡 Insights:**")
+    st.markdown(f"""
+    - Your cash will reach **${cash_balance + (revenue - expenses) * 12:,.0f}** in 12 months
+    - Monthly cash flow: **${revenue - expenses:,.0f}**
+    - Break-even point: {abs(cash_balance / (revenue - expenses)):.1f} months (if negative cash flow)
+    """)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with tab2:
+    st.markdown('<div class="graph-box">', unsafe_allow_html=True)
+    expense_data = {
+        "Marketing": marketing,
+        "Salaries": salaries,
+        "Operations": operations,
+        "Software": software,
+        "Other": other
+    }
+    fig2 = plot_expense_breakdown(expense_data)
+    st.plotly_chart(fig2, use_container_width=True)
+    
+    st.markdown("**💡 Insights:**")
+    largest_expense = max(expense_data, key=expense_data.get)
+    st.markdown(f"""
+    - Largest expense category: **{largest_expense}** (${expense_data[largest_expense]:,.0f})
+    - Total expenses: **${expenses:,.0f}**
+    - Potential optimization: Focus on reducing the largest expense categories first
+    """)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with tab3:
+    st.markdown('<div class="graph-box">', unsafe_allow_html=True)
+    fig3 = plot_profit_trend(revenue, expenses)
+    st.plotly_chart(fig3, use_container_width=True)
+    
+    st.markdown("**💡 Insights:**")
+    st.markdown(f"""
+    - Average monthly profit: **${profit:,.0f}**
+    - Profit margin target: **20%+** (currently {profit_margin:.1f}%)
+    - Seasonality: Consider adjusting for business cycles
+    """)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with tab4:
+    st.markdown('<div class="graph-box">', unsafe_allow_html=True)
+    fig4 = plot_runway_analysis(cash_balance, expenses)
+    if fig4:
+        st.plotly_chart(fig4, use_container_width=True)
+        
+        st.markdown("**💡 Recommendations:**")
+        if runway < 3:
+            st.error("**🚨 CRITICAL:** Runway below 3 months! Immediate action required.")
+            st.markdown("1. Cut non-essential expenses immediately")
+            st.markdown("2. Accelerate accounts receivable")
+            st.markdown("3. Explore emergency funding")
+        elif runway < 6:
+            st.warning("**⚠️ WARNING:** Runway below 6-month safety net")
+            st.markdown("1. Reduce discretionary spending")
+            st.markdown("2. Renegotiate vendor contracts")
+            st.markdown("3. Delay non-critical hires")
+        else:
+            st.success("**✅ HEALTHY:** Runway above 6 months")
+            st.markdown("1. Consider growth investments")
+            st.markdown("2. Build cash reserves")
+            st.markdown("3. Explore new opportunities")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ========== CHAT INTERFACE ==========
 st.markdown("---")
@@ -486,53 +539,53 @@ if prompt := st.chat_input("💭 Ask your AI CFO about financial strategies, ana
         st.markdown(prompt)
     
     with st.chat_message("assistant"):
-        with st.spinner("🔍 Analyzing..."):
+        with st.spinner("🔍 Analyzing your finances..."):
             response = ask_cfo_assistant(prompt, st.session_state.financial_data)
             st.markdown(response)
             st.session_state.messages.append({"role": "assistant", "content": response})
 
-# ========== SAMPLE SPREADSHEET TEMPLATES ==========
+# ========== QUICK ACTIONS ==========
 st.markdown("---")
-st.markdown("### 📑 Available Report Templates")
+st.markdown("### 🚀 Quick Actions")
 
-template_cols = st.columns(3)
+action_cols = st.columns(4)
+with action_cols[0]:
+    if st.button("📊 Full Analysis", use_container_width=True):
+        st.session_state.messages.append({
+            "role": "user", 
+            "content": "Provide a comprehensive financial analysis with recommendations"
+        })
+        st.rerun()
 
-with template_cols[0]:
-    st.markdown('<div class="spreadsheet-table">', unsafe_allow_html=True)
-    st.markdown("**Startup Financial Model**")
-    st.markdown("• Revenue projections")
-    st.markdown("• Expense breakdown")
-    st.markdown("• Fundraising plan")
-    st.markdown("• Valuation metrics")
-    st.markdown('</div>', unsafe_allow_html=True)
+with action_cols[1]:
+    if st.button("💰 Optimize Expenses", use_container_width=True):
+        st.session_state.messages.append({
+            "role": "user", 
+            "content": f"Suggest ways to optimize my ${expenses:,.0f} in monthly expenses"
+        })
+        st.rerun()
 
-with template_cols[1]:
-    st.markdown('<div class="spreadsheet-table">', unsafe_allow_html=True)
-    st.markdown("**Monthly P&L Report**")
-    st.markdown("• Income statement")
-    st.markdown("• Expense tracking")
-    st.markdown("• Profit analysis")
-    st.markdown("• Margin calculations")
-    st.markdown('</div>', unsafe_allow_html=True)
+with action_cols[2]:
+    if st.button("📈 Growth Plan", use_container_width=True):
+        st.session_state.messages.append({
+            "role": "user", 
+            "content": f"Create a 6-month growth plan for ${revenue:,.0f} revenue business"
+        })
+        st.rerun()
 
-with template_cols[2]:
-    st.markdown('<div class="spreadsheet-table">', unsafe_allow_html=True)
-    st.markdown("**Investor Pitch Deck**")
-    st.markdown("• Financial highlights")
-    st.markdown("• Growth metrics")
-    st.markdown("• Use of funds")
-    st.markdown("• ROI projections")
-    st.markdown('</div>', unsafe_allow_html=True)
+with action_cols[3]:
+    if st.button("🔄 Update Graphs", use_container_width=True):
+        st.rerun()
 
 # ========== FOOTER ==========
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; padding: 2rem 0;">
-    <p style="margin: 0.5rem 0; color: #94a3b8;">
-        <strong>UXXCA AI CFO Assistant</strong> • Professional Financial Reporting
+    <p style="margin: 0.5rem 0;">
+        <strong>UXXCA AI CFO Assistant</strong> • Professional Reports • Interactive Graphs • Actionable Insights
     </p>
     <p style="margin: 0.5rem 0; font-size: 0.9rem; color: #64748b;">
-        Generate investor-ready financial reports in seconds. All data remains private.
+        Generate investor-ready reports and visualize your financial health in real-time
     </p>
 </div>
 """, unsafe_allow_html=True)
